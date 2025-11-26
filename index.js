@@ -1,8 +1,14 @@
 require('dotenv').config();
+const express = require('express');
 const { Telegraf } = require('telegraf');
 const { scrapeUrl } = require('./scrapper');
 
-const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+if (!TELEGRAM_BOT_TOKEN) {
+  throw new Error('TELEGRAM_BOT_TOKEN is missing. Set it in your environment before starting the bot.');
+}
+
+const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
 
 bot.start((ctx) => {
     ctx.reply(
@@ -34,9 +40,24 @@ bot.on('text', async (ctx) => {
 });
 
 bot.catch((err, ctx) => {
-    console.error('Error:', err);
-    ctx.reply('Oops, something went wrong!');
+  console.error('Bot error:', err);
+  ctx.reply('Oops, something went wrong. Please try again later.');
 });
 
 bot.launch();
-console.log('Bot is running...');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Telegram Scraper Bot is running!',
+    uptimeSeconds: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Bot and Express API are running at http://localhost:${PORT}`);
+});
