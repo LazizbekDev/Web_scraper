@@ -6,7 +6,7 @@ An extensible Telegram bot that scrapes any public webpage and returns a structu
 
 ## Features
 - **/scrape `<url>` command** – returns title, metadata, language, canonical URL, robots rules, structured data stats, heading hierarchy, content preview, link summary, and image accessibility stats.
-- **Dual fetching strategies** – switch between a web scraping API service, Puppeteer, or a hybrid fallback flow.
+- **Dual fetching strategies** – switch between a web scraping API service, a Chromium-free headless browser (puppeteer-core + `@sparticuz/chromium`), or a hybrid fallback flow that tries the browser first.
 - **Markdown-safe output** – response text is escaped to display cleanly inside Telegram chats.
 - **Configurable rendering** – tweak user agent, wait conditions, timeouts, geographic routing, device type, and JS rendering needs via environment variables.
 - **Production-ready structure** – clean separation between Telegram bot logic and scraping utilities for easy maintenance or reuse elsewhere.
@@ -14,7 +14,7 @@ An extensible Telegram bot that scrapes any public webpage and returns a structu
 ---
 
 ## Requirements
-- Node.js 18+ (Puppeteer’s default Chromium bundle requires modern Node).
+- Node.js 18+ (needed for modern TLS and the serverless-friendly Chromium build).
 - Telegram Bot token (create via [@BotFather](https://t.me/BotFather)).
 - Optional: Account + API key for a scraping provider (e.g., scraperapi.com) if you want fully managed proxying, geographic routing, or large-volume scraping.
 
@@ -47,7 +47,7 @@ Open Telegram, message your bot, and run `/scrape https://example.com`.
 | `SCRAPER_TIMEOUT_MS` | ➖ | Request timeout in milliseconds (default `60000`). Applies to both service and browser modes. |
 | `SCRAPER_BROWSER_WAIT_UNTIL` | ➖ | Puppeteer `waitUntil` event (`load`, `domcontentloaded`, `networkidle0`, `networkidle2`). Default `networkidle2`. |
 | `SCRAPER_BROWSER_WAIT_MS` | ➖ | Extra delay (ms) after the initial load before HTML is captured. |
-| `PUPPETEER_EXECUTABLE_PATH` | ➖ | Set when deploying somewhere that supplies Chromium separately (e.g., serverless). |
+| `PUPPETEER_EXECUTABLE_PATH` | ➖ | Override the Chromium path. Optional locally; on Render/Vercel/AWS Lambda you can rely on `@sparticuz/chromium` auto-detection. |
 
 > Never commit your `.env`—the repo is configured to ignore it. Use `.env.example` as a template.
 
@@ -87,7 +87,7 @@ Example response excerpt:
 
 ## Scraping Modes
 1. **Service** – uses the configured scraping provider. Best for large scale, rotating proxies, or when Chromium is unavailable.
-2. **Browser** – uses Puppeteer headless Chromium locally. Ideal for React/SPA content when running on a machine with enough resources.
+2. **Browser** – uses `puppeteer-core` paired with `@sparticuz/chromium` so it works on Render, Vercel, Netlify, AWS Lambda, or any serverless/container runtime.
 3. **Hybrid** – tries the headless browser first for complete rendering, and falls back to the service if the browser step fails.
 
 Use `SCRAPER_RENDER_JS=true` with service mode if your provider supports server-side JS rendering and you prefer managed infrastructure.
@@ -97,7 +97,7 @@ Use `SCRAPER_RENDER_JS=true` with service mode if your provider supports server-
 ## Troubleshooting
 - `SCRAPER_API_KEY is missing`: Either add the key to `.env` or set `SCRAPER_FETCH_MODE=browser`.
 - `Error: Navigation timeout`: Increase `SCRAPER_TIMEOUT_MS` and/or set `SCRAPER_BROWSER_WAIT_UNTIL=domcontentloaded`.
-- Puppeteer fails to launch on Linux servers: install Chromium dependencies or set `PUPPETEER_EXECUTABLE_PATH` to a system Chromium build.
+- `Unable to locate a Chromium executable`: set `PUPPETEER_EXECUTABLE_PATH` to a local Chrome binary, or ensure `@sparticuz/chromium` is installed (it is by default) on your serverless/container platform.
 - Telegram messages truncated: Telegram limits messages to ~4096 characters. Extremely verbose pages may need pruning or splitting in future features.
 
 ---

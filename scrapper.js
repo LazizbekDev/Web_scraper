@@ -1,6 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const puppeteer = require('puppeteer');
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 ScrapperBot/2.0';
@@ -47,11 +48,23 @@ let browserSingleton;
 async function getBrowser() {
   if (browserSingleton) return browserSingleton;
 
-  browserSingleton = puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-    defaultViewport: { width: 1280, height: 720 },
+  const resolvedExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH || (await chromium.executablePath());
+  if (!resolvedExecutablePath) {
+    throw new Error(
+      'Unable to locate a Chromium executable. Set PUPPETEER_EXECUTABLE_PATH when running outside serverless-compatible environments.'
+    );
+  }
+
+  browserSingleton = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport || { width: 1280, height: 720 },
+    executablePath: resolvedExecutablePath,
+    headless: typeof chromium.headless === 'boolean' ? chromium.headless : true,
+    ignoreHTTPSErrors: true,
+  });
+
+  browserSingleton.on('disconnected', () => {
+    browserSingleton = undefined;
   });
 
   return browserSingleton;
@@ -78,11 +91,13 @@ async function fetchHtmlViaBrowser(targetUrl) {
     }
 
     const html = await page.content();
-    await page.close();
     return html;
-  } catch (err) {
-    await page.close();
-    throw err;
+  } finally {
+    try {
+      await page.close();
+    } catch (closeError) {
+      console.warn('Failed to close Puppeteer page:', closeError.message);
+    }
   }
 }
 
